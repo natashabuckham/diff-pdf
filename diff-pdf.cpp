@@ -26,7 +26,19 @@
 #include <vector>
 
 #include <glib.h>
-#include <poppler.h>
+#include <poppler_cpp_export.h>
+#include <poppler-destination.h>
+#include <poppler-document.h>
+#include <poppler-embedded-file.h>
+#include <poppler-font.h>
+#include <poppler-global.h>
+#include <poppler-image.h>
+#include <poppler-page-renderer.h>
+#include <poppler-page-transition.h>
+#include <poppler-page.h>
+#include <poppler-rectangle.h>
+#include <poppler-toc.h>
+#include <poppler-version.h>
 #include <cairo/cairo.h>
 #include <cairo/cairo-pdf.h>
 
@@ -224,7 +236,19 @@ cairo_surface_t *diff_images(int page, cairo_surface_t *s1, cairo_surface_t *s2,
                         ty = std::min(ty, thumbnail_height - 1);
 
                         // mark changes with red
-                        thumbnail->SetRGB(tx, ty, 255, 0, 0);
+                        unsigned char bg_r = thumbnail->GetRed(tx, ty);
+                        unsigned char bg_g = thumbnail->GetGreen(tx, ty);
+                        unsigned char bg_b = thumbnail->GetBlue(tx, ty);
+
+                        unsigned char red = 255;
+                        unsigned char opacity = 255; // Adjust opacity here (0 to 255)
+
+                        unsigned char blended_r = (opacity * red + (255 - opacity) * bg_r) / 255;
+                        unsigned char blended_g = (opacity * 0 + (255 - opacity) * bg_g) / 255;
+                        unsigned char blended_b = (opacity * 0 + (255 - opacity) * bg_b) / 255;
+
+                        thumbnail->SetRGB(tx, ty, blended_r, blended_g, blended_b);
+
                     }
                 }
 
