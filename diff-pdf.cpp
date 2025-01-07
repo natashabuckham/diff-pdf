@@ -26,19 +26,19 @@
 #include <vector>
 
 #include <glib.h>
-#include <poppler_cpp_export.h>
-#include <poppler-destination.h>
-#include <poppler-document.h>
-#include <poppler-embedded-file.h>
-#include <poppler-font.h>
-#include <poppler-global.h>
-#include <poppler-image.h>
-#include <poppler-page-renderer.h>
-#include <poppler-page-transition.h>
-#include <poppler-page.h>
-#include <poppler-rectangle.h>
-#include <poppler-toc.h>
-#include <poppler-version.h>
+#include <poppler.h>
+// #include <poppler-destination.h>
+// #include <poppler-document.h>
+// #include <poppler-embedded-file.h>
+// #include <poppler-font.h>
+// #include <poppler-global.h>
+// #include <poppler-image.h>
+// #include <poppler-page-renderer.h>
+// #include <poppler-page-transition.h>
+// #include <poppler-page.h>
+// #include <poppler-rectangle.h>
+// #include <poppler-toc.h>
+// #include <poppler-version.h>
 #include <cairo/cairo.h>
 #include <cairo/cairo-pdf.h>
 
@@ -82,11 +82,11 @@ cairo_surface_t *render_page(PopplerPage *page)
     const int h_px = int((int)g_resolution * h / 72.0);
 
     cairo_surface_t *surface =
-        cairo_image_surface_create(CAIRO_FORMAT_RGB24, w_px, h_px);
+        cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w_px, h_px);
 
     cairo_t *cr = cairo_create(surface);
 
-    // clear the surface to white background:
+    // clear the surface with transparency:
     cairo_save(cr);
     cairo_set_source_rgb(cr, 1, 1, 1);
     cairo_rectangle(cr, 0, 0, w_px, h_px);
@@ -144,6 +144,8 @@ cairo_surface_t *diff_images(int page, cairo_surface_t *s1, cairo_surface_t *s2,
 
     cairo_surface_t *diff =
         cairo_image_surface_create(CAIRO_FORMAT_RGB24, rdiff.width, rdiff.height);
+    
+    cairo_t *cr = cairo_create(diff);
 
     float thumbnail_scale;
     int thumbnail_height;
@@ -163,8 +165,8 @@ cairo_surface_t *diff_images(int page, cairo_surface_t *s1, cairo_surface_t *s2,
     {
         changes = true;
 
-        cairo_t *cr = cairo_create(diff);
-        cairo_set_source_rgb(cr, 1, 1, 1);
+        // cairo_t *cr = cairo_create(diff);
+        cairo_set_source_rgba(cr, 1, 1, 1, 1);
         cairo_rectangle(cr, 0, 0, rdiff.width, rdiff.height);
         cairo_fill(cr);
         cairo_destroy(cr);
@@ -235,20 +237,24 @@ cairo_surface_t *diff_images(int page, cairo_surface_t *s1, cairo_surface_t *s2,
                         tx = std::min(tx, thumbnail_width - 1);
                         ty = std::min(ty, thumbnail_height - 1);
 
-                        // mark changes with red
-                        unsigned char bg_r = thumbnail->GetRed(tx, ty);
-                        unsigned char bg_g = thumbnail->GetGreen(tx, ty);
-                        unsigned char bg_b = thumbnail->GetBlue(tx, ty);
+                        // // mark changes with red
+                        // unsigned char bg_r = thumbnail->GetRed(tx, ty);
+                        // unsigned char bg_g = thumbnail->GetGreen(tx, ty);
+                        // unsigned char bg_b = thumbnail->GetBlue(tx, ty);
 
-                        unsigned char red = 255;
-                        unsigned char opacity = 255; // Adjust opacity here (0 to 255)
+                        // unsigned char red = 255;
+                        // unsigned char opacity = 255; // Adjust opacity here (0 to 255)
 
-                        unsigned char blended_r = (opacity * red + (255 - opacity) * bg_r) / 255;
-                        unsigned char blended_g = (opacity * 0 + (255 - opacity) * bg_g) / 255;
-                        unsigned char blended_b = (opacity * 0 + (255 - opacity) * bg_b) / 255;
+                        cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);  // Clear the pixel
+                        cairo_rectangle(cr, tx, ty, 1, 1);            // Define the area
+                        cairo_fill(cr);                               // Apply the clear operation
 
-                        thumbnail->SetRGB(tx, ty, blended_r, blended_g, blended_b);
-
+                        cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);  // Overwrite with red
+                        cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 1.0);  // Fully opaque red
+                        cairo_rectangle(cr, tx, ty, 1, 1);              // Define the same area
+                        cairo_fill(cr);                                 // Apply the red color
+             // Fill the rectangle
+                        cairo_surface_write_to_png(diff, "debug_highlight_surface.png");
                     }
                 }
 
@@ -307,7 +313,8 @@ cairo_surface_t *diff_images(int page, cairo_surface_t *s1, cairo_surface_t *s2,
         out = thumbnail->GetData();
         for ( int i = thumbnail_width * thumbnail_height; i > 0; i-- )
         {
-            if ( out[1] == 0 ) // G=0 ==> not white
+            if (out[0] == 255 && out[1] == 0 && out[2] == 0) // Explicitly check for pure red (R=255, G=0, B=0)
+        // Don't modify areas marked as red
             {
                 // marked with red color, as place with differences -- don't
                 // paint background image here, make the red as visible as
@@ -318,9 +325,9 @@ cairo_surface_t *diff_images(int page, cairo_surface_t *s1, cairo_surface_t *s2,
             else
             {
                 // merge in lighter background image
-                *(out++) = 128 + *(in++) / 2;
-                *(out++) = 128 + *(in++) / 2;
-                *(out++) = 128 + *(in++) / 2;
+                *(out++) = 192 + *(in++) / 4;
+                *(out++) = 192 + *(in++) / 4;
+                *(out++) = 192 + *(in++) / 4;
             }
         }
 
@@ -371,6 +378,8 @@ bool page_compare(int page, cairo_t *cr_out,
                                         thumbnail, thumbnail_width);
     const bool has_diff = (diff != NULL);
 
+    
+
     if ( cr_out )
     {
         if ( diff )
@@ -381,7 +390,7 @@ bool page_compare(int page, cairo_t *cr_out,
             cairo_scale(cr_out, 72.0 / g_resolution, 72.0 / g_resolution);
 
             cairo_set_source_surface(cr_out, diff ? diff : img1, 0, 0);
-            cairo_paint(cr_out);
+            cairo_paint_with_alpha(cr_out, 1.0);
 
             cairo_restore(cr_out);
         }

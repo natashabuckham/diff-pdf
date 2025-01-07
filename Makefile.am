@@ -8,8 +8,10 @@ diff_pdf_SOURCES = \
 			gutter.cpp \
 			gutter.h
 
-diff_pdf_CXXFLAGS = $(POPPLER_CFLAGS) $(WX_CXXFLAGS)
-diff_pdf_LDADD = $(POPPLER_LIBS) $(WX_LIBS)
+diff_pdf_CXXFLAGS = $(POPPLER_CFLAGS) $(WX_CXXFLAGS) \
+	-IC:/Work/diff-pdf/vcpkg/installed/x64-windows/include
+diff_pdf_LDADD = $(POPPLER_LIBS) $(WX_LIBS) \
+    -LC:/Work/diff-pdf/vcpkg/installed/x64-windows/lib
 
 EXTRA_DIST = bootstrap gtk-zoom-in.xpm gtk-zoom-out.xpm README.md win32/fonts.conf win32/collect-dlls.sh
 
